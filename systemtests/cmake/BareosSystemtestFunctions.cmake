@@ -602,17 +602,14 @@ function(add_systemtest_from_directory tests_basedir prefix test_subdir)
     )
   endforeach()
 
-  if(NOT EXISTS ${test_dir}/test-cleanup)
-    create_symlink(
-      "${PROJECT_BINARY_DIR}/scripts/cleanup" "${test_dir}/test-cleanup"
-    )
-  endif()
+  if(EXISTS ${test_dir}/test-cleanup)
   add_systemtest(${test_basename}:cleanup "${test_dir}/test-cleanup")
 
   set_tests_properties(
     ${test_basename}:cleanup PROPERTIES FIXTURES_CLEANUP
                                         "${test_basename}-fixture"
   )
+  endif()
 
 endfunction()
 
