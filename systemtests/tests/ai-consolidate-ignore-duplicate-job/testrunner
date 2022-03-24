@@ -5,7 +5,7 @@
 # the last incremental is kept 
 # (job->AlwaysIncrementalKeepNumber default is 1)
 #
-# Run a batch of 3 incrementals with no files 
+# Run a batch of 3 incrementals with no files
 # Run consolidation : jobid with no files will get purged
 #
 # Run a batch of 3 incrementals the second with no files
@@ -119,22 +119,26 @@ stop_bareos
 
 check_job_canceled
 if ! grep "purged JobIds 1,2,3 as they were consolidated into Job 6" "$tmp"/log1.out; then
-  echo "consolidation did not work. Check $tmp/log1.out" >&2
+  echo "consolidation did not work. Content of $tmp/log1.out:" >&2
+  cat "$tmp/log1.out"
   estat=1
 fi
 
 if ! grep "purging empty jobids 7,8,9" "$tmp"/log2.out; then
-  echo "Removing of empty jobs did not work. Check $tmp/log2.out" >&2
+  echo "Removing of empty jobs did not work. Content of $tmp/log2.out:" >&2
+  cat "$tmp/log2.out"
   estat=1
 fi
 
 if ! grep "purging empty jobids 12" "$tmp"/log3.out; then
-  echo "Removing of empty jobs did not work. Check $tmp/log3.out" >&2
+  echo "Removing of empty jobs did not work. Content $tmp/log3.out:" >&2
+  cat "$tmp/log3.out"
   estat=1
 fi
 
 if ! grep "purged JobIds 6,4,11 as they were consolidated into Job 15" "$tmp"/log3.out; then
-  echo "consolidation did not work. Check $tmp/log3.out" >&2
+  echo "consolidation did not work. Content of $tmp/log3.out:" >&2
+  cat "$tmp/log3.out"
   estat=1
 fi
 
