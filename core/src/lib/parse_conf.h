@@ -426,10 +426,17 @@ struct ResHeadContainer {
   ~ResHeadContainer()
   {
     int num = config_->r_num_;
-    for (int j = 0; j < num; j++) { config_->FreeResourceCb_(res_head_[j], j); }
-    free(res_head_);
-    Dmsg0(100, "ResHeadContainer::~ResHeadContainer : freed restable  at %p\n",
-          res_head_);
+    for (int j = 0; j < num; j++) {
+      config_->FreeResourceCb_(res_head_[j], j);
+      res_head_[j] = nullptr;
+    }
+    printf("ResHeadContainer::~ResHeadContainer : feeing restable  at %p\n",
+           res_head_);
+    // free(res_head_);
+    printf("ResHeadContainer::~ResHeadContainer : freed restable  at %p\n",
+           res_head_);
+    // Dmsg0(100, "ResHeadContainer::~ResHeadContainer : freed restable  at
+    // %p\n", res_head_);
   }
 };
 
