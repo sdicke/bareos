@@ -587,6 +587,8 @@ bool DoReloadConfig()
 {
   static bool is_reloading = false;
   bool reloaded = false;
+  // my_config->res_head_container_ = nullptr;
+
   resource_table_reference prev_config;
 
   if (is_reloading) {
