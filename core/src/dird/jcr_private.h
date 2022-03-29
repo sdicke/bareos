@@ -37,6 +37,7 @@ class ClientResource;
 class PoolResource;
 class FilesetResource;
 class CatalogResource;
+class ResHeadContainer;
 }  // namespace directordaemon
 
 namespace storagedaemon {
@@ -96,6 +97,7 @@ struct JobControlRecordPrivate {
   JobControlRecordPrivate() {
     RestoreJobId = 0; MigrateJobId = 0; VerifyJobId = 0;
   }
+  std::shared_ptr<directordaemon::ResHeadContainer> res_head_container_;
   pthread_t SD_msg_chan{};        /**< Message channel thread id */
   bool SD_msg_chan_started{};     /**< Message channel thread started */
   pthread_cond_t term_wait = PTHREAD_COND_INITIALIZER;      /**< Wait for job termination */
