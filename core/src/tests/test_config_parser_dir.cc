@@ -35,22 +35,19 @@ namespace directordaemon {
 TEST(ConfigParser_Dir, bareos_configparser_tests)
 {
   OSDependentInit();
-
   std::string path_to_config_file = std::string(
       RELATIVE_PROJECT_SOURCE_DIR "/configs/bareos-configparser-tests");
   my_config = InitDirConfig(path_to_config_file.c_str(), M_ERROR_TERM);
   my_config->ParseConfig();
-  my_config->DumpResources(PrintMessage, NULL);
+  // my_config->DumpResources(PrintMessage, NULL);
 
   ASSERT_EQ(true, my_config->BackupResourceTable());
+
   my_config->ParseConfig();
   me = (DirectorResource*)my_config->GetNextRes(R_DIRECTOR, nullptr);
   my_config->own_resource_ = me;
-
   ASSERT_NE(nullptr, me);
-  my_config->DumpResources(PrintMessage, NULL);
-  ASSERT_NE(nullptr, me);
-
+#if 0
   ASSERT_EQ(true, my_config->RestoreResourceTable());
   ASSERT_NE(nullptr, me);
   my_config->ParseConfig();
@@ -59,9 +56,9 @@ TEST(ConfigParser_Dir, bareos_configparser_tests)
   assert(me);
 
   ASSERT_NE(nullptr, me);
-  my_config->DumpResources(PrintMessage, NULL);
+  // my_config->DumpResources(PrintMessage, NULL);
   ASSERT_NE(nullptr, me);
-
+#endif
   delete my_config;
 }
 

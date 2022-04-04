@@ -550,11 +550,20 @@ void ConfigurationParser::ClearResourceTables()
 }
 
 // restore the previously saved  res_head_backup_ to res_head_
-bool ConfigurationParser::RestoreResourceTable() { return true; }
+bool ConfigurationParser::RestoreResourceTable()
+{
+  // res_head_container_.reset(res_head_container_previous_.get());
+  // res_head_container_previous_ = nullptr;
+  std::swap(res_head_container_, res_head_container_previous_);
+  return true;
+}
 // copy the current resource table to res_head_backup_
+// and create a new res_head_container_
 bool ConfigurationParser::BackupResourceTable()
 {
-  // res_head_container_previous_.reset(res_head_container_.get());
+  std::swap(res_head_container_, res_head_container_previous_);
+  // res_head_container_previous_ = res_head_container_;
+  res_head_container_.reset(new ResHeadContainer(this));
   return true;
 }
 

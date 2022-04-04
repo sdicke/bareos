@@ -294,9 +294,8 @@ int main(int argc, char* argv[])
     pidfile_fd = CreatePidFile("bareos-dir", pidfile_path);
   }
 #endif
-  // See if we want to drop privs.
   if (geteuid() == 0) {
-    drop(uid, gid, false); /* reduce privileges if requested */
+    drop(uid, gid, false);  // reduce privileges if requested
   }
 
   if (export_config_schema) {
@@ -556,7 +555,7 @@ bool DoReloadConfig()
   DbSqlPoolFlush();
 
   my_config->BackupResourceTable();
-  my_config->ClearResourceTables();
+  //  my_config->ClearResourceTables();
   Dmsg0(100, "Reloading config file\n");
 
 
