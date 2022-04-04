@@ -562,7 +562,6 @@ bool ConfigurationParser::RestoreResourceTable()
 bool ConfigurationParser::BackupResourceTable()
 {
   std::swap(res_head_container_, res_head_container_previous_);
-  // res_head_container_previous_ = res_head_container_;
   res_head_container_.reset(new ResHeadContainer(this));
   return true;
 }
