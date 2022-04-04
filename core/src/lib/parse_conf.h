@@ -246,9 +246,6 @@ class ConfigurationParser {
                       FreeResourceCb_t FreeResourceCb);
 
   ~ConfigurationParser();
-  void ResetResHeadContainerPrevious();
-  void RestorePreviousConfig();
-  void ClearResourceTables();
 
   bool IsUsingConfigIncludeDir() const { return use_config_include_dir_; }
   bool ParseConfig();
@@ -258,8 +255,12 @@ class ConfigurationParser {
                        LEX_WARNING_HANDLER* scan_warning = nullptr);
   const std::string& get_base_config_path() const { return used_config_path_; }
   void FreeResources();
+
+  void ReleasePreviousResourceTable();
+  void RestorePreviousConfig();
   bool BackupResourceTable();
   bool RestoreResourceTable();
+
   void InitResource(int rcode,
                     ResourceItem items[],
                     int pass,
@@ -431,7 +432,7 @@ struct ResHeadContainer {
 
   ~ResHeadContainer()
   {
-    Dmsg1(0, "ResHeadContainer::~ResHeadContainer : freeing restable  at %p\n",
+    Dmsg1(0, "ResHeadContainer::~ResHeadContainer : freeing res_head at %p\n",
           res_head_);
     int num = config_->r_num_;
     for (int j = 0; j < num; j++) {
