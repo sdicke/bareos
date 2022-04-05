@@ -349,9 +349,8 @@ void ListDirStatusHeader(UaContext* ua)
               kBareosVersionStrings.GetOsInfo());
   bstrftime_nc(dt, sizeof(dt), daemon_start_time);
   ua->SendMsg(_("Daemon started %s. Jobs: run=%d, running=%d db:postgresql, %s "
-                "binary %s\n"),
-              dt, num_jobs_run, JobCount(), kBareosVersionStrings.BinaryInfo,
-              my_config->res_head_container_->TimeStampAsString().c_str());
+                "binary\n"),
+              dt, num_jobs_run, JobCount(), kBareosVersionStrings.BinaryInfo);
 
   if (me->secure_erase_cmdline) {
     ua->SendMsg(_(" secure erase command='%s'\n"), me->secure_erase_cmdline);
