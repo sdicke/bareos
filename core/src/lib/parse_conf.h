@@ -219,8 +219,8 @@ class ConfigurationParser {
   BareosResource* own_resource_; /* Pointer to own resource */
   ResourceTable*
       resource_definitions_; /* Pointer to table of permitted resources */
-  std::shared_ptr<ResHeadContainer> res_head_container_;
-  std::shared_ptr<ResHeadContainer> res_head_container_backup_;
+  std::shared_ptr<ResHeadContainer> config_resources_container_;
+  std::shared_ptr<ResHeadContainer> config_resources_container_backup_;
   mutable brwlock_t res_lock_; /* Resource lock */
 
   SaveResourceCb_t SaveResourceCb_;

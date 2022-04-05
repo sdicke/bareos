@@ -184,10 +184,10 @@ static void ShowAll(UaContext* ua, bool hide_sensitive_data, bool verbose)
         // Skip R_DEVICE since it is really not used or updated
         continue;
       default:
-        if (my_config->res_head_container_->res_head_[j]) {
+        if (my_config->config_resources_container_->res_head_[j]) {
           my_config->DumpResourceCb_(
-              j, my_config->res_head_container_->res_head_[j], bsendmsg, ua,
-              hide_sensitive_data, verbose);
+              j, my_config->config_resources_container_->res_head_[j], bsendmsg,
+              ua, hide_sensitive_data, verbose);
         }
         break;
     }
@@ -264,7 +264,7 @@ bool show_cmd(UaContext* ua, const char* cmd)
                          len)) {
           type = show_cmd_available_resources[j].type;
           if (type > 0) {
-            res = my_config->res_head_container_->res_head_[type];
+            res = my_config->config_resources_container_->res_head_[type];
           } else {
             res = NULL;
           }
