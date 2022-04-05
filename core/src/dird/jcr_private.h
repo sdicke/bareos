@@ -96,8 +96,8 @@ struct Resources {
 };
 
 struct JobControlRecordPrivate {
-  JobControlRecordPrivate( std::shared_ptr<ResHeadContainer> res_head_container) {
-    job_config_resources_container_ = res_head_container;
+  JobControlRecordPrivate( std::shared_ptr<ResHeadContainer> configuration_resources_container) {
+    job_config_resources_container_ = configuration_resources_container;
     RestoreJobId = 0; MigrateJobId = 0; VerifyJobId = 0;
   }
   ~JobControlRecordPrivate() {
