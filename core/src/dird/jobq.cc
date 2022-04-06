@@ -100,11 +100,6 @@ int JobqInit(jobq_t* jq, int max_workers, void* (*engine)(void* arg))
   jq->engine = engine;           /* routine to run */
   jq->valid = JOBQ_VALID;
 
-  // Initialize the job queues
-  jq->waiting_jobs = new dlist<jobq_item_t>();
-  jq->running_jobs = new dlist<jobq_item_t>();
-  jq->ready_jobs = new dlist<jobq_item_t>();
-
   return 0;
 }
 
@@ -139,9 +134,6 @@ int JobqDestroy(jobq_t* jq)
   status = pthread_mutex_destroy(&jq->mutex);
   status1 = pthread_cond_destroy(&jq->work);
   status2 = pthread_attr_destroy(&jq->attr);
-  delete jq->waiting_jobs;
-  delete jq->running_jobs;
-  delete jq->ready_jobs;
   return (status != 0 ? status : (status1 != 0 ? status1 : status2));
 }
 
@@ -199,8 +191,8 @@ extern "C" void* sched_wait(void* arg)
 int JobqAdd(jobq_t* jq, JobControlRecord* jcr)
 {
   int status;
-  jobq_item_t *item, *li;
-  bool inserted = false;
+  jobq_item_t* item;  //, *li;
+  // bool inserted = false;
   time_t wtime = jcr->sched_time - time(NULL);
   pthread_t id;
   wait_pkt* sched_pkt;
@@ -251,11 +243,14 @@ int JobqAdd(jobq_t* jq, JobControlRecord* jcr)
   SetJcrInThreadSpecificData(nullptr);
   if (JobCanceled(jcr)) {
     // Add job to ready queue so that it is canceled quickly
-    jq->ready_jobs->prepend(item);
+    jq->ready_jobs.insert(item);
     Dmsg1(2300, "Prepended job=%d to ready queue\n", jcr->JobId);
   } else {
     // Add this job to the wait queue in priority sorted order
-    foreach_dlist (li, jq->waiting_jobs) {
+    jq->waiting_jobs.insert(item);
+
+#if 0
+    for (auto li : jq->waiting_jobs) {
       Dmsg2(2300, "waiting item jobid=%d priority=%d\n", li->jcr->JobId,
             li->jcr->JobPriority);
       if (li->jcr->JobPriority > jcr->JobPriority) {
@@ -272,6 +267,7 @@ int JobqAdd(jobq_t* jq, JobControlRecord* jcr)
       jq->waiting_jobs->append(item);
       Dmsg1(2300, "Appended item jobid=%d to waiting queue\n", jcr->JobId);
     }
+#endif
   }
 
   // Ensure that at least one server looks at the queue.
@@ -299,7 +295,7 @@ int JobqRemove(jobq_t* jq, JobControlRecord* jcr)
   if (jq->valid != JOBQ_VALID) { return EINVAL; }
 
   P(jq->mutex);
-  foreach_dlist (item, jq->waiting_jobs) {
+  for (auto item : jq->waiting_jobs) {
     if (jcr == item->jcr) {
       found = true;
       break;
@@ -313,8 +309,8 @@ int JobqRemove(jobq_t* jq, JobControlRecord* jcr)
   }
 
   // Move item to be the first on the list
-  jq->waiting_jobs->remove(item);
-  jq->ready_jobs->prepend(item);
+  jq->waiting_jobs.erase(jq->waiting_jobs.find(item));
+  jq->ready_jobs.insert(item);
   Dmsg2(2300, "JobqRemove jobid=%d jcr=0x%x moved to ready queue\n", jcr->JobId,
         jcr);
 
@@ -394,13 +390,13 @@ extern "C" void* jobq_server(void* arg)
 
     // If anything is in the ready queue, run it
     Dmsg0(2300, "Checking ready queue.\n");
-    while (!jq->ready_jobs->empty() && !jq->quit) {
+    while (!jq->ready_jobs.empty() && !jq->quit) {
       JobControlRecord* jcr;
 
-      je = (jobq_item_t*)jq->ready_jobs->first();
+      je = *jq->ready_jobs.begin();
       jcr = je->jcr;
-      jq->ready_jobs->remove(je);
-      if (!jq->ready_jobs->empty()) {
+      jq->ready_jobs.erase(je);
+      if (!jq->ready_jobs.empty()) {
         Dmsg0(2300, "ready queue not empty start server\n");
         if (StartServer(jq) != 0) {
           jq->num_workers--;
@@ -408,7 +404,7 @@ extern "C" void* jobq_server(void* arg)
           return NULL;
         }
       }
-      jq->running_jobs->append(je);
+      jq->running_jobs.insert(je);
 
       // Attach jcr to this thread while we run the job
       jcr->SetKillable(true);
@@ -433,7 +429,7 @@ extern "C" void* jobq_server(void* arg)
       // Reacquire job queue lock
       P(jq->mutex);
       Dmsg0(200, "Done lock mutex after running job. Release locks.\n");
-      jq->running_jobs->remove(je);
+      jq->running_jobs.erase(je);
 
       /*
        * Release locks if acquired. Note, they will not have
@@ -462,18 +458,18 @@ extern "C" void* jobq_server(void* arg)
 
     // If any job in the wait queue can be run, move it to the ready queue
     Dmsg0(2300, "Done check ready, now check wait queue.\n");
-    if (!jq->waiting_jobs->empty() && !jq->quit) {
+    if (!jq->waiting_jobs.empty() && !jq->quit) {
       int Priority;
       bool running_allow_mix = false;
-      je = (jobq_item_t*)jq->waiting_jobs->first();
-      jobq_item_t* re = (jobq_item_t*)jq->running_jobs->first();
+      je = *jq->waiting_jobs.begin();
+      jobq_item_t* re = *jq->running_jobs.begin();
       if (re) {
         Priority = re->jcr->JobPriority;
         Dmsg2(2300, "JobId %d is running. Look for pri=%d\n", re->jcr->JobId,
               Priority);
         running_allow_mix = true;
 
-        for (; re;) {
+        for (auto re : jq->running_jobs) {
           Dmsg2(
               2300, "JobId %d is also running with %s\n", re->jcr->JobId,
               re->jcr->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
@@ -481,8 +477,8 @@ extern "C" void* jobq_server(void* arg)
             running_allow_mix = false;
             break;
           }
-          re = (jobq_item_t*)jq->running_jobs->next(re);
         }
+
         Dmsg1(2300, "The running job(s) %s mixing priorities.\n",
               running_allow_mix ? "allow" : "don't allow");
       } else {
@@ -494,10 +490,10 @@ extern "C" void* jobq_server(void* arg)
        * Walk down the list of waiting jobs and attempt to acquire the resources
        * it needs.
        */
-      for (; je;) {
+      for (auto je : jq->waiting_jobs) {
         // je is current job item on the queue, jn is the next one
         JobControlRecord* jcr = je->jcr;
-        jobq_item_t* jn = (jobq_item_t*)jq->waiting_jobs->next(je);
+        // jobq_item_t* jn = jq->waiting_jobs(je++);
 
         Dmsg4(2300, "Examining Job=%d JobPri=%d want Pri=%d (%s)\n", jcr->JobId,
               jcr->JobPriority, Priority,
@@ -515,7 +511,7 @@ extern "C" void* jobq_server(void* arg)
         if (!AcquireResources(jcr)) {
           // If resource conflict, job is canceled
           if (!JobCanceled(jcr)) {
-            je = jn; /* point to next waiting job */
+            //   je = jn; /* point to next waiting job */
             continue;
           }
         }
@@ -525,18 +521,18 @@ extern "C" void* jobq_server(void* arg)
          * to the ready queue.  Note, we may also get here if the
          * job was canceled.  Once it is "run", it will quickly Terminate.
          */
-        jq->waiting_jobs->remove(je);
-        jq->ready_jobs->append(je);
+        jq->waiting_jobs.erase(je);
+        jq->ready_jobs.insert(je);
         Dmsg1(2300, "moved JobId=%d from wait to ready queue\n",
               je->jcr->JobId);
-        je = jn; /* Point to next waiting job */
-      }          /* end for loop */
-    }            /* end if */
+        // je = jn; /* Point to next waiting job */
+      } /* end for loop */
+    }   /* end if */
 
     Dmsg0(2300, "Done checking wait queue.\n");
 
     // If no more ready work and we are asked to quit, then do it
-    if (jq->ready_jobs->empty() && jq->quit) {
+    if (jq->ready_jobs.empty() && jq->quit) {
       jq->num_workers--;
       if (jq->num_workers == 0) {
         Dmsg0(2300, "Wake up destroy routine\n");
@@ -551,15 +547,15 @@ extern "C" void* jobq_server(void* arg)
 
     // If no more work requests, and we waited long enough, quit
     Dmsg2(2300, "timedout=%d read empty=%d\n", timedout,
-          jq->ready_jobs->empty());
+          jq->ready_jobs.empty());
 
-    if (jq->ready_jobs->empty() && timedout) {
+    if (jq->ready_jobs.empty() && timedout) {
       Dmsg0(2300, "break big loop\n");
       jq->num_workers--;
       break;
     }
 
-    work = !jq->ready_jobs->empty() || !jq->waiting_jobs->empty();
+    work = !jq->ready_jobs.empty() || !jq->waiting_jobs.empty();
     if (work) {
       /*
        * If a job is waiting on a Resource, don't consume all
@@ -572,7 +568,7 @@ extern "C" void* jobq_server(void* arg)
       P(jq->mutex);
 
       // Recompute work as something may have changed in last 2 secs
-      work = !jq->ready_jobs->empty() || !jq->waiting_jobs->empty();
+      work = !jq->ready_jobs.empty() || !jq->waiting_jobs.empty();
     }
     Dmsg1(2300, "Loop again. work=%d\n", work);
   } /* end of big for loop */
