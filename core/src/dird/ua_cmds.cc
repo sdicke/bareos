@@ -2666,12 +2666,10 @@ static bool wait_cmd(UaContext* ua, const char* cmd)
   char jobstatus = '?'; /* Unknown by default */
   PoolMem temp(PM_MESSAGE);
 
-  /*
-   * no args
-   * Wait until no job is running
-   */
+  /* no args
+   * Wait until no job is running */
   if (ua->argc == 1) {
-    Bmicrosleep(0, 200000); /* let job actually start */
+    Bmicrosleep(3, 0); /* let job actually start */
     for (bool running = true; running;) {
       running = false;
       foreach_jcr (jcr) {
