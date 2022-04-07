@@ -493,25 +493,24 @@ extern "C" void* jobq_server(void* arg)
        */
       for (auto je : jq->waiting_jobs) {
         // je is current job item on the queue, jn is the next one
-        JobControlRecord* jcr = *je->jcr;
         // jobq_item_t* jn = jq->waiting_jobs(je++);
 
-        Dmsg4(2300, "Examining Job=%d JobPri=%d want Pri=%d (%s)\n", jcr->JobId,
-              jcr->JobPriority, Priority,
-              jcr->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
+        Dmsg4(2300, "Examining Job=%d JobPri=%d want Pri=%d (%s)\n",
+              je->jcr->JobId, je->jcr->JobPriority, Priority,
+              je->jcr->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
 
         // Take only jobs of correct Priority
-        if (!(jcr->JobPriority == Priority
-              || (jcr->JobPriority < Priority
-                  && jcr->impl->res.job->allow_mixed_priority
+        if (!(je->jcr->JobPriority == Priority
+              || (je->jcr->JobPriority < Priority
+                  && je->jcr->impl->res.job->allow_mixed_priority
                   && running_allow_mix))) {
-          jcr->setJobStatus(JS_WaitPriority);
+          je->jcr->setJobStatus(JS_WaitPriority);
           break;
         }
 
-        if (!AcquireResources(jcr)) {
+        if (!AcquireResources(je->jcr)) {
           // If resource conflict, job is canceled
-          if (!JobCanceled(jcr)) {
+          if (!JobCanceled(je->jcr)) {
             //   je = jn; /* point to next waiting job */
             continue;
           }
