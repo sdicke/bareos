@@ -289,15 +289,16 @@ int JobqRemove(jobq_t* jq, JobControlRecord* jcr)
 {
   int status;
   bool found = false;
-  jobq_item_t* item;
+  jobq_item_t* item{};
 
   Dmsg2(2300, "JobqRemove jobid=%d jcr=0x%x\n", jcr->JobId, jcr);
   if (jq->valid != JOBQ_VALID) { return EINVAL; }
 
   P(jq->mutex);
-  for (auto item : jq->waiting_jobs) {
-    if (jcr == item->jcr) {
+  for (auto itm : jq->waiting_jobs) {
+    if (jcr == itm->jcr) {
       found = true;
+      item = itm;
       break;
     }
   }
