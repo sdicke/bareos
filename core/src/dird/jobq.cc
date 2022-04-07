@@ -493,7 +493,7 @@ extern "C" void* jobq_server(void* arg)
        */
       for (auto je : jq->waiting_jobs) {
         // je is current job item on the queue, jn is the next one
-        JobControlRecord* jcr = je->jcr;
+        JobControlRecord* jcr = *je->jcr;
         // jobq_item_t* jn = jq->waiting_jobs(je++);
 
         Dmsg4(2300, "Examining Job=%d JobPri=%d want Pri=%d (%s)\n", jcr->JobId,
