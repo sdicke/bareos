@@ -50,7 +50,9 @@ extern "C" void* sched_wait(void* arg);
 
 static int StartServer(jobq_t* jq);
 static bool AcquireResources(JobControlRecord* jcr);
-static bool RescheduleJob(JobControlRecord* jcr, jobq_t* jq, jobq_item_t* je);
+static bool RescheduleJob(JobControlRecord* jcr,
+                          jobq_t* jq,
+                          JobControlRecord* je);
 static bool IncClientConcurrency(JobControlRecord* jcr);
 static void DecClientConcurrency(JobControlRecord* jcr);
 static bool IncJobConcurrency(JobControlRecord* jcr);
@@ -191,7 +193,7 @@ extern "C" void* sched_wait(void* arg)
 int JobqAdd(jobq_t* jq, JobControlRecord* jcr)
 {
   int status;
-  jobq_item_t* item;  //, *li;
+  JobControlRecord* item;  //, *li;
   // bool inserted = false;
   time_t wtime = jcr->sched_time - time(NULL);
   pthread_t id;
@@ -233,11 +235,11 @@ int JobqAdd(jobq_t* jq, JobControlRecord* jcr)
 
   P(jq->mutex);
 
-  if ((item = (jobq_item_t*)malloc(sizeof(jobq_item_t))) == NULL) {
+  if ((item = (JobControlRecord*)malloc(sizeof(JobControlRecord))) == NULL) {
     FreeJcr(jcr); /* release jcr */
     return ENOMEM;
   }
-  item->jcr = jcr;
+  item = jcr;
 
   // While waiting in a queue this job is not attached to a thread
   SetJcrInThreadSpecificData(nullptr);
@@ -251,12 +253,12 @@ int JobqAdd(jobq_t* jq, JobControlRecord* jcr)
 
 #if 0
     for (auto li : jq->waiting_jobs) {
-      Dmsg2(2300, "waiting item jobid=%d priority=%d\n", li->jcr->JobId,
-            li->jcr->JobPriority);
-      if (li->jcr->JobPriority > jcr->JobPriority) {
+      Dmsg2(2300, "waiting item jobid=%d priority=%d\n", li->JobId,
+            li->JobPriority);
+      if (li->JobPriority > jcr->JobPriority) {
         jq->waiting_jobs->InsertBefore(item, li);
         Dmsg2(2300, "InsertBefore jobid=%d before waiting job=%d\n",
-              li->jcr->JobId, jcr->JobId);
+              li->JobId, jcr->JobId);
         inserted = true;
         break;
       }
@@ -289,14 +291,14 @@ int JobqRemove(jobq_t* jq, JobControlRecord* jcr)
 {
   int status;
   bool found = false;
-  jobq_item_t* item{};
+  JobControlRecord* item{};
 
   Dmsg2(2300, "JobqRemove jobid=%d jcr=0x%x\n", jcr->JobId, jcr);
   if (jq->valid != JOBQ_VALID) { return EINVAL; }
 
   P(jq->mutex);
   for (auto itm : jq->waiting_jobs) {
-    if (jcr == itm->jcr) {
+    if (jcr == itm) {
       found = true;
       item = itm;
       break;
@@ -351,7 +353,7 @@ extern "C" void* jobq_server(void* arg)
 {
   struct timespec timeout;
   jobq_t* jq = (jobq_t*)arg;
-  jobq_item_t* je; /* job entry in queue */
+  JobControlRecord* je; /* job entry in queue */
   int status;
   bool timedout = false;
   bool work = true;
@@ -395,7 +397,7 @@ extern "C" void* jobq_server(void* arg)
       JobControlRecord* jcr;
 
       je = *jq->ready_jobs.begin();
-      jcr = je->jcr;
+      jcr = je;
       jq->ready_jobs.erase(je);
       if (!jq->ready_jobs.empty()) {
         Dmsg0(2300, "ready queue not empty start server\n");
@@ -418,11 +420,11 @@ extern "C" void* jobq_server(void* arg)
       // Call user's routine here
       Dmsg3(2300, "Calling user engine for jobid=%d use=%d stat=%c\n",
             jcr->JobId, jcr->UseCount(), jcr->JobStatus);
-      jq->engine(je->jcr);
+      jq->engine(je);
 
       // Job finished detach from thread
-      RemoveJcrFromThreadSpecificData(je->jcr);
-      je->jcr->SetKillable(false);
+      RemoveJcrFromThreadSpecificData(je);
+      je->SetKillable(false);
 
       Dmsg2(2300, "Back from user engine jobid=%d use=%d.\n", jcr->JobId,
             jcr->UseCount());
@@ -463,18 +465,17 @@ extern "C" void* jobq_server(void* arg)
       int Priority;
       bool running_allow_mix = false;
       je = *jq->waiting_jobs.begin();
-      jobq_item_t* re = *jq->running_jobs.begin();
+      JobControlRecord* re = *jq->running_jobs.begin();
       if (re) {
-        Priority = re->jcr->JobPriority;
-        Dmsg2(2300, "JobId %d is running. Look for pri=%d\n", re->jcr->JobId,
+        Priority = re->JobPriority;
+        Dmsg2(2300, "JobId %d is running. Look for pri=%d\n", re->JobId,
               Priority);
         running_allow_mix = true;
 
         for (auto re : jq->running_jobs) {
-          Dmsg2(
-              2300, "JobId %d is also running with %s\n", re->jcr->JobId,
-              re->jcr->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
-          if (!re->jcr->impl->res.job->allow_mixed_priority) {
+          Dmsg2(2300, "JobId %d is also running with %s\n", re->JobId,
+                re->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
+          if (!re->impl->res.job->allow_mixed_priority) {
             running_allow_mix = false;
             break;
           }
@@ -483,7 +484,7 @@ extern "C" void* jobq_server(void* arg)
         Dmsg1(2300, "The running job(s) %s mixing priorities.\n",
               running_allow_mix ? "allow" : "don't allow");
       } else {
-        Priority = je->jcr->JobPriority;
+        Priority = je->JobPriority;
         Dmsg1(2300, "No job running. Look for Job pri=%d\n", Priority);
       }
 
@@ -493,24 +494,24 @@ extern "C" void* jobq_server(void* arg)
        */
       for (auto je : jq->waiting_jobs) {
         // je is current job item on the queue, jn is the next one
-        // jobq_item_t* jn = jq->waiting_jobs(je++);
+        // JobControlRecord* jn = jq->waiting_jobs(je++);
 
-        Dmsg4(2300, "Examining Job=%d JobPri=%d want Pri=%d (%s)\n",
-              je->jcr->JobId, je->jcr->JobPriority, Priority,
-              je->jcr->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
+        Dmsg4(2300, "Examining Job=%d JobPri=%d want Pri=%d (%s)\n", je->JobId,
+              je->JobPriority, Priority,
+              je->impl->res.job->allow_mixed_priority ? "mix" : "no mix");
 
         // Take only jobs of correct Priority
-        if (!(je->jcr->JobPriority == Priority
-              || (je->jcr->JobPriority < Priority
-                  && je->jcr->impl->res.job->allow_mixed_priority
+        if (!(je->JobPriority == Priority
+              || (je->JobPriority < Priority
+                  && je->impl->res.job->allow_mixed_priority
                   && running_allow_mix))) {
-          je->jcr->setJobStatus(JS_WaitPriority);
+          je->setJobStatus(JS_WaitPriority);
           break;
         }
 
-        if (!AcquireResources(je->jcr)) {
+        if (!AcquireResources(je)) {
           // If resource conflict, job is canceled
-          if (!JobCanceled(je->jcr)) {
+          if (!JobCanceled(je)) {
             //   je = jn; /* point to next waiting job */
             continue;
           }
@@ -523,8 +524,7 @@ extern "C" void* jobq_server(void* arg)
          */
         jq->waiting_jobs.erase(je);
         jq->ready_jobs.insert(je);
-        Dmsg1(2300, "moved JobId=%d from wait to ready queue\n",
-              je->jcr->JobId);
+        Dmsg1(2300, "moved JobId=%d from wait to ready queue\n", je->JobId);
         // je = jn; /* Point to next waiting job */
       } /* end for loop */
     }   /* end if */
@@ -581,7 +581,9 @@ extern "C" void* jobq_server(void* arg)
 }
 
 // Returns true if cleanup done and we should look for more work
-static bool RescheduleJob(JobControlRecord* jcr, jobq_t* jq, jobq_item_t* je)
+static bool RescheduleJob(JobControlRecord* jcr,
+                          jobq_t* jq,
+                          JobControlRecord* je)
 {
   bool resched = false, retval = false;
 

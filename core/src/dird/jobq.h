@@ -40,15 +40,12 @@ template <typename T> class dlist;
 
 namespace directordaemon {
 
-// Structure to keep track of job queue request
-struct jobq_item_t {
-  JobControlRecord* jcr;
-};
 
-struct jobq_compare {
-  bool operator()(const jobq_item_t* left, const jobq_item_t* right) const
+struct JcrCompare {
+  bool operator()(const JobControlRecord* left,
+                  const JobControlRecord* right) const
   {
-    return left->jcr->JobPriority < right->jcr->JobPriority;
+    return left->JobPriority < right->JobPriority;
   }
 };
 
@@ -57,14 +54,14 @@ struct jobq_t {
   pthread_mutex_t mutex; /* queue access control */
   pthread_cond_t work;   /* wait for work */
   pthread_attr_t attr;   /* create detached threads */
-  std::set<jobq_item_t*, jobq_compare> waiting_jobs;
-  std::set<jobq_item_t*, jobq_compare> running_jobs;
-  std::set<jobq_item_t*, jobq_compare> ready_jobs; /* ready to run */
-  int valid;                                       /* queue initialized */
-  bool quit;                                       /* jobq should quit */
-  int max_workers;                                 /* max threads */
-  int num_workers;                                 /* current threads */
-  void* (*engine)(void* arg);                      /* user engine */
+  std::multiset<JobControlRecord*, JcrCompare> waiting_jobs;
+  std::multiset<JobControlRecord*, JcrCompare> running_jobs;
+  std::multiset<JobControlRecord*, JcrCompare> ready_jobs; /* ready to run */
+  int valid;                  /* queue initialized */
+  bool quit;                  /* jobq should quit */
+  int max_workers;            /* max threads */
+  int num_workers;            /* current threads */
+  void* (*engine)(void* arg); /* user engine */
 };
 
 #define JOBQ_VALID 0xdec1993

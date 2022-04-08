@@ -30,6 +30,7 @@ cat <<END_OF_DATA >$tmp/bconcmds
 @$out /dev/null
 messages
 @$out $tmp/log1.out
+setdebug dir level=2300 trace=1
 setdebug level=100 storage=File
 setdevice storage=File device=MultiFileStorage0001 autoselect=yes
 setdevice storage=File device=MultiFileStorage0002 autoselect=yes
